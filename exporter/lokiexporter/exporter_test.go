@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/client"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/consumer/consumererror"
@@ -105,6 +106,21 @@ func TestExporter_pushLogData(t *testing.T) {
 		}
 	}
 
+	genericReqTestFuncTenantSource := func(t *testing.T, r *http.Request) {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, "application/x-protobuf", r.Header.Get("Content-Type"))
+		assert.Equal(t, "tenantID", r.Header.Get("X-Scope-OrgID"))
+		assert.Equal(t, "some_value", r.Header.Get("X-Custom-Header"))
+
+		_, err = snappy.Decode(nil, body)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	genericGenLogsFunc := func() pdata.Logs {
 		return createLogData(10,
 			pdata.NewMapFromRaw(map[string]interface{}{
@@ -135,6 +151,32 @@ func TestExporter_pushLogData(t *testing.T) {
 		},
 	}
 
+	genericConfigTenantSource := &Config{
+		HTTPClientSettings: confighttp.HTTPClientSettings{
+			Endpoint: "",
+			Headers: map[string]string{
+				"X-Custom-Header": "some_value",
+			},
+		},
+		TenantSource: TenantSourceConfig{
+			Metadata: map[string]string{"attribute": "X-Scope-OrgID"},
+		},
+		Labels: LabelsConfig{
+			Attributes: map[string]string{
+				conventions.AttributeContainerName:  "container_name",
+				conventions.AttributeK8SClusterName: "k8s_cluster_name",
+				"severity":                          "severity",
+			},
+			ResourceAttributes: map[string]string{
+				"resource.name": "resource_name",
+			},
+		},
+	}
+
+	genericContext := context.Background()
+	metadata := client.NewMetadata(map[string][]string{"X-Scope-OrgID": {"tenantID"}})
+	genericContextTenantSource := client.NewContext(genericContext, client.Info{Metadata: metadata})
+
 	tests := []struct {
 		name             string
 		reqTestFunc      func(t *testing.T, r *http.Request)
@@ -145,9 +187,17 @@ func TestExporter_pushLogData(t *testing.T) {
 		errFunc          func(err error)
 	}{
 		{
-			name:             "happy path",
+			name:             "happy path tenant id",
 			reqTestFunc:      genericReqTestFunc,
 			config:           genericConfig,
+			httpResponseCode: http.StatusOK,
+			testServer:       true,
+			genLogsFunc:      genericGenLogsFunc,
+		},
+		{
+			name:             "happy path tenant source",
+			reqTestFunc:      genericReqTestFuncTenantSource,
+			config:           genericConfigTenantSource,
 			httpResponseCode: http.StatusOK,
 			testServer:       true,
 			genLogsFunc:      genericGenLogsFunc,
@@ -240,10 +290,10 @@ func TestExporter_pushLogData(t *testing.T) {
 
 			exp := newExporter(tt.config, componenttest.NewNopTelemetrySettings())
 			require.NotNil(t, exp)
-			err := exp.start(context.Background(), componenttest.NewNopHost())
+			err := exp.start(genericContextTenantSource, componenttest.NewNopHost())
 			require.NoError(t, err)
 
-			err = exp.pushLogData(context.Background(), tt.genLogsFunc())
+			err = exp.pushLogData(genericContextTenantSource, tt.genLogsFunc())
 
 			if tt.errFunc != nil {
 				tt.errFunc(err)

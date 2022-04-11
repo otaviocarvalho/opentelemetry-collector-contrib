@@ -76,6 +76,9 @@ func TestLoadConfig(t *testing.T) {
 			QueueSize:    10,
 		},
 		TenantID: "example",
+		TenantSource: TenantSourceConfig{
+			Metadata: map[string]string{"attribute": "X-Scope-OrgID"},
+		},
 		Labels: LabelsConfig{
 			Attributes: map[string]string{
 				conventions.AttributeContainerName:  "container_name",
@@ -138,6 +141,9 @@ func TestJSONLoadConfig(t *testing.T) {
 			QueueSize:    5000,
 		},
 		TenantID: "example",
+		TenantSource: TenantSourceConfig{
+			Metadata: map[string]string{"attribute": "X-Scope-OrgID"},
+		},
 		Labels: LabelsConfig{
 			Attributes:         map[string]string{},
 			ResourceAttributes: map[string]string{},

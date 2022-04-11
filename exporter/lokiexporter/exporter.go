@@ -30,6 +30,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/common/model"
+	"go.opentelemetry.io/collector/client"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/model/pdata"
@@ -87,6 +88,19 @@ func (l *lokiExporter) pushLogData(ctx context.Context, ld pdata.Logs) error {
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("Content-Type", "application/x-protobuf")
+
+	if len(l.config.TenantID) > 0 && len(l.config.TenantSource.Metadata) > 0 {
+		err = fmt.Errorf("tenant_id and tenant_source cannot be present on the config at the same time")
+		return consumererror.NewPermanent(err)
+	}
+
+	if len(l.config.TenantSource.Metadata) > 0 {
+		tenantAttrSource := l.config.TenantSource.Metadata["attribute"]
+		tenantID := strings.Join(client.FromContext(ctx).Metadata.Get(tenantAttrSource), "")
+		if tenantID != "" {
+			req.Header.Set(tenantAttrSource, tenantID)
+		}
+	}
 
 	if len(l.config.TenantID) > 0 {
 		req.Header.Set("X-Scope-OrgID", l.config.TenantID)

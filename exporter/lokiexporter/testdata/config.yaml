@@ -8,6 +8,9 @@ exporters:
   loki:
     endpoint: "https://loki:3100/loki/api/v1/push"
     tenant_id: "example"
+    tenant_source:
+      metadata:
+        attribute: "X-Scope-OrgID"
     labels:
       attributes:
         container.name: "container_name"
@@ -16,10 +19,16 @@ exporters:
   loki/json:
     endpoint: "https://loki:3100/loki/api/v1/push"
     tenant_id: "example"
+    tenant_source:
+      metadata:
+        attribute: "X-Scope-OrgID"
     format: "json"
   loki/allsettings:
     endpoint: "https://loki:3100/loki/api/v1/push"
     tenant_id: "example"
+    tenant_source:
+      metadata:
+        attribute: "X-Scope-OrgID"
     tls:
       insecure: true
       ca_file: /var/lib/mycert.pem

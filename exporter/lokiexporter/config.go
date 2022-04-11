@@ -34,6 +34,9 @@ type Config struct {
 	// TenantID defines the tenant ID to associate log streams with.
 	TenantID string `mapstructure:"tenant_id"`
 
+	// TenantSource describes how to map a tenant ID from telemetry.
+	TenantSource TenantSourceConfig `mapstructure:"tenant_source"`
+
 	// Labels defines how labels should be applied to log streams sent to Loki.
 	Labels LabelsConfig `mapstructure:"labels"`
 	// Allows you to choose the entry format in the exporter
@@ -63,6 +66,11 @@ type LabelsConfig struct {
 	// RecordAttributes are the attributes from the record that are allowed to be added as labels on a log stream. Possible keys:
 	// traceID, spanID, severity, severityN.
 	RecordAttributes map[string]string `mapstructure:"record"`
+}
+
+// TenantSourceConfig defines the tenant_source related configuration
+type TenantSourceConfig struct {
+	Metadata map[string]string `mapstructure:"metadata"`
 }
 
 func (c *LabelsConfig) validate() error {
